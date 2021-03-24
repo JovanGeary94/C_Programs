@@ -1,0 +1,118 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <semaphore.h>
+
+#define FILE_NAME "words.txt"
+#define STR_SIZE 50
+
+sem_t readSem;
+sem_t writeSem;
+
+char wordArray[99][STR_SIZE];
+char selectString[STR_SIZE];
+
+void * readString(void * arg) {
+	
+	FILE * fp;
+	
+	char * userString = (char *)malloc(STR_SIZE * sizeof(char));
+	
+	int i = 0;
+	
+	fp = fopen(FILE_NAME, "r");
+	
+	if (fp == NULL) {
+		
+		printf("File cannot open, check that the file name is correct\n");
+		exit(0);
+		
+	}
+	
+	while((fgets(userString, STR_SIZE, fp)) != NULL) {
+		
+		if(i >= 99) {
+			
+			break;
+			
+		}
+		
+		strcpy(wordArray[i], userString);
+		
+		i++;
+		
+	}
+	
+	fclose(fp);
+	free(userString);
+	
+	i = 0;
+	
+	sem_wait(&readSem);
+	
+	while(1) {
+		
+		if(i >= 99) {
+		
+			i = 0;
+	
+		}
+	
+		strcpy(selectString, wordArray[i]);
+		
+		i++;
+		
+		sleep(1);
+	
+		sem_post(&writeSem);
+		
+	
+	}
+	
+	return NULL;
+	
+};
+	
+void * writeString(void * arg) {
+	
+	//sem_wait(&writeSem);
+	
+	while(1) {
+		
+		sem_wait(&writeSem);
+		
+		printf("%s", selectString);
+		
+		sem_post(&readSem);
+		
+	};
+	
+	return NULL;
+	
+};
+
+int main (void) {
+	
+	pthread_t readThread, writeThread;
+	
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	
+	sem_init(&readSem, 1, 1);
+    sem_init(&writeSem, 1, 0);
+	
+	pthread_create(&readThread, &attr, &readString, NULL);
+	pthread_create(&writeThread, &attr, &writeString, NULL);
+	
+	pthread_join(readThread, NULL);
+	pthread_join(writeThread, NULL);
+	
+	sem_close(&readSem);
+	sem_close(&writeSem);
+	
+	
+	return 0;
+	
+}	
